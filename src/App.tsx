@@ -1,110 +1,117 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
+import React, {useCallback, useEffect, useState} from 'react';
+import {View, Text, StyleSheet, Image} from 'react-native';
 
-import React, {ReactNode} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+import {useLiveLocation} from './hooks/useLiveLocation';
+import {useDispatch} from 'react-redux';
+import {getWeather, WeatherDataType} from '@store/weatherActions';
+import {Simple} from '@components/template/Simple';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+import {Suspense} from '@components/organism/suspense';
+import {ProgressOverlay} from '@components/atom/ProgressOverlay';
+import {Weather} from '@components/molecule/Weather';
+import {WeatherError} from '@components/molecule/Weather/WeatherError';
+import {BackgroundImage} from '@components/organism/BackgroundImage';
+import SkyBg from '../assets/images/sky-image.png';
+import LogoBuilders from '../assets/images/logo-builders.png';
 
-const Section = ({children, title}): ReactNode => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-};
+const App = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [weatherData, setWeatherData] = useState<WeatherDataType>();
+  const dispatch = useDispatch();
 
-const App: () => ReactNode = () => {
-  const isDarkMode = useColorScheme() === 'dark';
+  const {error, location} = useLiveLocation();
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  console.log(weatherData);
+
+  const getCurrentWeather = useCallback(() => {
+    dispatch(
+      getWeather(
+        {
+          lat: location.currentLatitude,
+          lon: location.currentLongitude,
+        },
+        data => {
+          setWeatherData(data);
+          setIsLoading(false);
+        },
+      ),
+    );
+  }, [dispatch, location.currentLatitude, location.currentLongitude]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    if (location) {
+      getCurrentWeather();
+    }
+
+    if (error) {
+      setIsLoading(false);
+    }
+  }, [dispatch, location, getCurrentWeather, error]);
+
+  const updateCurrentWeather = useCallback(() => {
+    getCurrentWeather();
+  }, [getCurrentWeather]);
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.js</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <Suspense
+      condition={isLoading}
+      fallback={
+        <ProgressOverlay>
+          <Text style={styles.text}>Estamos buscando sua localização</Text>
+          <Text style={styles.text}>Aguarde um instante</Text>
+        </ProgressOverlay>
+      }>
+      <BackgroundImage source={SkyBg} backgroundColor="white">
+        <Simple>
+          <View style={styles.content}>
+            <View style={styles.imageWrapper}>
+              <Image
+                source={LogoBuilders}
+                resizeMode="stretch"
+                style={styles.logo}
+              />
+            </View>
+            <View style={styles.wrapper}>
+              {location ? (
+                <Weather
+                  weatherData={weatherData}
+                  onUpdate={updateCurrentWeather}
+                />
+              ) : (
+                <WeatherError error={error} />
+              )}
+            </View>
+          </View>
+        </Simple>
+      </BackgroundImage>
+    </Suspense>
   );
 };
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  text: {
+    textAlign: 'center',
+    color: 'white',
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  content: {
+    flexGrow: 1,
+    marginVertical: 32,
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+  wrapper: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    marginVertical: 32,
   },
-  highlight: {
-    fontWeight: '700',
+  imageWrapper: {
+    flexGrow: 1,
+    alignItems: 'center',
+  },
+  logo: {
+    width: '70%',
+    height: 65,
   },
 });
 
